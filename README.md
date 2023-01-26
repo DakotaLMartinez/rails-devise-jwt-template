@@ -83,17 +83,18 @@ By running the following command to run a generator
 $ rails generate devise:install
 ```
 
+Also, add the following line to config/environments/development.rb
+
+```
+config.action_mailer.default_url_options = { host: 'localhost', port: 4000 }
+```
+
 It is important to set our navigational formats to empty in the generated devise.rb by uncommenting and modifying the following line since it’s an api only app.
 
 ```
 config.navigational_formats = []
 ```
 
-Also, add the following line to config/environments/development.rb
-
-```
-config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
-```
 
 ## Create User model
 
