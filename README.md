@@ -351,16 +351,7 @@ And try out a POST request to '/login' with the following body:
 }
 ```
 
-When we try this up front we get an error about an invalid CSRF Authenticity token. To fix this, we'll add a `protect_from_forgery` option to the `ApplicationController` that will nullify the session.
-
-```
-# app/controllers/application_controller.rb
-class ApplicationController < ActionController::Base
-  protect_from_forgery with: :null_session
-end
-```
-
-Try the request again and we should see a response that looks like this:
+When we try this we should see a response that looks like this:
 
 ```
 {
@@ -409,9 +400,9 @@ end
 
 Adding the `before_action :authenticate_user` will ensure that we only see a 200 response if we have a valid JWT in the headers. If we don't this endpoint should return a `401` status code.
 
-## Note for React Users
+## Reminder for React Users
 
-If you're going to use this api with a React application, you may want to set the default port to 3001 so that it won't conflict with the react dev server. If you set the default to port for the API to 3001, you'll have consistency with the two ports when you run both servers simultaneously. If you don't do this, you'd always need to make sure you start the front end dev server before the backend one to make sure that the ports are consistent.
+If you're going to use this api with a React application, you may want to set the default port to 4000 so that it won't conflict with the react dev server. If you set the default to port for the API to 4000, you'll have consistency with the two ports when you run both servers simultaneously. If you don't do this, you'd always need to make sure you start the front end dev server before the backend one to make sure that the ports are consistent.
 
 To do this, you'll need to make changes in two different files: `config/environments/development.rb` and `config/puma.rb`. In `config/environments/development.rb`, replace the following:
 
@@ -429,13 +420,13 @@ config.action_mailer.default_url_options = { host: 'localhost', port: 4000 }
 And, in `config/puma.rb`, replace the following:
 
 ```rb
-port        ENV.fetch("PORT") { 3000 }
+port ENV.fetch("PORT") { 3000 }
 ```
 
 with
 
 ```rb
-port        ENV.fetch("PORT") { 4000 }
+port ENV.fetch("PORT") { 4000 }
 ```
 
 After you've made these changes, you can run
