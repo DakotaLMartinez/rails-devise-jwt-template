@@ -1,10 +1,10 @@
 # Rails Devise JWT Tutorial
 
-Thanks to [this tutorial on Tech Compose](https://www.techcompose.com/rails-6-api-fast_jsonapi-gem-with-devise-and-jwt-authentication/) and the [devise](https://github.com/heartcombo/devise) and [devise-jwt](https://github.com/waiting-for-dev/devise-jwt) gems. Also this [blog post on token recovation strategies](http://waiting-for-dev.github.io/blog/2017/01/24/jwt_revocation_strategies/) was helpful to me.
+Thanks to [this tutorial on Tech Compose](https://www.techcompose.com/rails-6-api-jsonapi-serializer-gem-with-devise-and-jwt-authentication/) and the [devise](https://github.com/heartcombo/devise) and [devise-jwt](https://github.com/waiting-for-dev/devise-jwt) gems. Also this [blog post on token recovation strategies](http://waiting-for-dev.github.io/blog/2017/01/24/jwt_revocation_strategies/) was helpful to me.
 
-This article is all about authentication in rails 6 using devise and devise-jwt with fast_jsonapi response.
+This article is all about authentication in rails 6 using devise and devise-jwt with jsonapi-serializer response.
 
-Fast_jsonapi
+jsonapi-serializer
 A lightning fast JSON:API serializer for Ruby Objects. It is better in performance compared to Active Model Serializer.
 
 ## Devise and JWT
@@ -26,13 +26,13 @@ Here, I have created a rails 6 application using postgresql (Default SQLite).
 
 As this is an API Only application, we have to handle ajax requests. So for that, we have to Rack Middleware for handling Cross-Origin Resource Sharing (CORS)
 
-To do that, add the following line 
+To do that, add the following line
 
 ```
 gem 'rack-cors'
 ```
 
-to your generated Gemfile. 
+to your generated Gemfile.
 
 Run
 
@@ -94,7 +94,6 @@ It is important to set our navigational formats to empty in the generated devise
 ```
 config.navigational_formats = []
 ```
-
 
 ## Create User model
 
@@ -233,9 +232,9 @@ In our case, we won't be needing to interact with the jwt_payload directly, so w
 rails db:migrate
 ```
 
-## Add respond_with using fast_jsonapi method
+## Add respond_with using jsonapi_serializers method
 
-As we already added the `fast_jsonapi` gem, we can generate a serializer to configure the json format we'll want to send to our front end API.
+As we already added the `jsonapi-serializer` gem, we can generate a serializer to configure the json format we'll want to send to our front end API.
 
 ```
 $ rails generate serializer user id email created_at
@@ -245,7 +244,7 @@ It will create a serializer with a predefined structure. Now, we have to add the
 
 ```rb
 class UserSerializer
-  include FastJsonapi::ObjectSerializer
+  include JSONAPI::Serializer
   attributes :id, :email, :created_at
 end
 ```
@@ -253,9 +252,9 @@ end
 We can access serializer data for single record by,
 
 ```rb
-UserSerializer.new(resource).serializable_hash[:data][:attributes]
+UserSerializer.new(resource).serializable_hash[:data][:attributes].to_json
 And multiple records by,
-UserSerializer.new(resource).serializable_hash[:data].map{|data| data[:attributes]}
+UserSerializer.new(resource).serializable_hash[:data].map{|data| data[:attributes].to_json}
 ```
 
 Now, we have to tell devise to communicate through JSON by adding these methods in the `RegistrationsController` and `SessionsController`
@@ -310,13 +309,70 @@ Remember, you can use the attribute method in a serializer to add a property to 
 
 ```rb
 attribute :created_date do |user|
-       user && user.created_at.strftime('%d/%m/%Y')
+  user && user.created_at.strftime('%d/%m/%Y')
 end
 ```
 
 Here, we're adding a created_date attribute that will reformat the user's created_at value in the one we specify.
 
-Here you can get [detailed information on fast_jsonapi](https://github.com/Netflix/fast_jsonapi).
+Here you can get [detailed information on jsonapi-serializer](https://github.com/jsonapi-serializer/jsonapi-serializer).
+
+## Sanity Check: Try it out in Postman!
+
+To start up our local dev server on port 4000, we'll want to change some default configuration so we don't need to add a flag every time.
+
+```rb
+# in config/puma.rb
+port ENV.fetch("PORT") { 3000 }
+```
+
+replace with:
+
+```rb
+port ENV.fetch("PORT") { 4000 }
+```
+
+Now we can run 
+
+```bash
+rails s
+```
+
+And try out a POST request to '/login' with the following body:
+
+```json
+{
+  "user": {
+    "email": "test@test.com",
+    "password": "password"
+  }
+}
+```
+
+When we try this up front we get an error about an invalid CSRF Authenticity token. To fix this, we'll add a `protect_from_forgery` option to the `ApplicationController` that will nullify the session.
+
+```
+# app/controllers/application_controller.rb
+class ApplicationController < ActionController::Base
+  protect_from_forgery with: :null_session
+end
+```
+
+Try the request again and we should see a response that looks like this:
+
+```
+{
+  "status": {
+    "code": 200,
+    "message": "Logged in sucessfully."
+  },
+  "data": {
+    "id": 1,
+    "email": "test@test.com",
+    "created_date": "01/27/2023"
+  }
+}
+```
 
 ## Adding a '/current_user' endpoint
 
@@ -331,10 +387,13 @@ And then in `config/routes.rb` find this line:
 ```rb
 get 'current_user/index'
 ```
+
 and replace it with
+
 ```rb
 get '/current_user', to: 'current_user#index'
 ```
+
 Now, fill in the `CurrentUserController` so it looks like this:
 
 ```rb
@@ -345,6 +404,7 @@ class CurrentUserController < ApplicationController
   end
 end
 ```
+
 Adding the `before_action :authenticate_user` will ensure that we only see a 200 response if we have a valid JWT in the headers. If we don't this endpoint should return a `401` status code.
 
 ## Note for React Users
@@ -358,7 +418,7 @@ To do this, you'll need to make changes in two different files: `config/environm
 config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
 ```
 
-with 
+with
 
 ```rb
 config.action_mailer.default_url_options = { host: 'localhost', port: 3001 }
@@ -370,17 +430,20 @@ And, in `config/puma.rb`, replace the following:
 port        ENV.fetch("PORT") { 3000 }
 ```
 
-with 
+with
+
 ```rb
 port        ENV.fetch("PORT") { 3001 }
 ```
 
-After you've made these changes, you can run 
+After you've made these changes, you can run
 
 ```bash
 rails s
 ```
+
 And it will boot up the server on port 3001.
+
 ## Finally, it’s done
 
 Now you can add the following line in any controller to authenticate your user.
@@ -647,4 +710,3 @@ fetch("http://localhost:3000/private/test", {
   .then((json) => console.dir(json))
   .catch((err) => console.error(err));
 ```
-
